@@ -4,7 +4,7 @@ https://github.com/ChatGPTNextWeb/NextChat/tree/main
 
 
 
-## CherryStudio Local (Tauri + React)
+## WriteStudio (Tauri + React)
 
 一个轻量级的 Tauri 桌面客户端，灵感来自 CherryStudio / LLM Studio，聚焦两个核心能力：
 

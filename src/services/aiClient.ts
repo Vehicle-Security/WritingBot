@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/tauri";
 import type { AiResponse, ChatCommandPayload } from "../types/chat";
 
 const isTauri = () =>

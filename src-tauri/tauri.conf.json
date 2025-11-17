@@ -6,13 +6,13 @@
     "distDir": "../dist"
   },
   "package": {
-    "productName": "CherryStudio Local",
+    "productName": "WriteStudio",
     "version": "0.1.0"
   },
   "tauri": {
     "windows": [
       {
-        "title": "CherryStudio Local",
+        "title": "WriteStudio",
         "width": 1280,
         "height": 800,
         "fullscreen": false,

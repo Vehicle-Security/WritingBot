@@ -9,7 +9,7 @@ export function ChatMessageList({ messages }: ChatMessageListProps) {
     return (
       <div className="empty-state">
         <p>
-          👋 欢迎来到 <strong>CherryStudio Local</strong>
+          👋 欢迎来到 <strong>WriteStudio</strong>
         </p>
         <p>选择一个 Prompt 或直接开始输入，和模型对话。</p>
       </div>
