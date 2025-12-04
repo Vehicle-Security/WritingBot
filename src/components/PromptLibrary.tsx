@@ -1,0 +1,110 @@
+import { useMemo, useState } from "react";
+import type { PromptTemplate } from "../types/chat";
+
+interface PromptLibraryProps {
+  prompts: PromptTemplate[];
+  selectedPromptId?: string;
+  onSelect: (promptId: string) => void;
+  onApply: (prompt: PromptTemplate) => void;
+  onDelete: (promptId: string) => void;
+  onSave: (prompt: PromptTemplate) => void;
+}
+
+export function PromptLibrary({
+  prompts,
+  selectedPromptId,
+  onSelect,
+  onApply,
+  onDelete,
+  onSave
+}: PromptLibraryProps) {
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
+  const [description, setDescription] = useState("");
+
+  const canCreate = useMemo(
+    () => name.trim().length > 0 && content.trim().length > 0,
+    [name, content]
+  );
+
+  const handleCreatePrompt = () => {
+    if (!canCreate) return;
+    const now = Date.now();
+    onSave({
+      id: crypto.randomUUID(),
+      name: name.trim(),
+      description: description.trim() || undefined,
+      content: content.trim(),
+      createdAt: now,
+      updatedAt: now
+    });
+    setName("");
+    setContent("");
+    setDescription("");
+  };
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <span className="panel-title">Prompt 库</span>
+        <span className="status-chip idle">{prompts.length}</span>
+      </div>
+
+      <div className="prompts-list">
+        {prompts.map((prompt) => (
+          <article
+            key={prompt.id}
+            className={`prompt-card ${
+              prompt.id === selectedPromptId ? "active" : ""
+            }`}
+          >
+            <div className="prompt-name">{prompt.name}</div>
+            <div className="prompt-preview">
+              {prompt.description || prompt.content}
+            </div>
+            <div className="prompt-actions">
+              <button onClick={() => onApply(prompt)}>插入</button>
+              <button onClick={() => onSelect(prompt.id)}>设为系统</button>
+              <button onClick={() => onDelete(prompt.id)}>删除</button>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="panel-header" style={{ marginTop: "1rem" }}>
+        <span className="panel-title">新增 Prompt</span>
+      </div>
+      <div className="prompt-form">
+        <label className="field">
+          名称
+          <input
+            placeholder="例如：品牌 Story Prompt"
+            value={name}
+            onChange={(event) => setName(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          描述
+          <input
+            placeholder="一句话描述用途（可选）"
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+          />
+        </label>
+        <label className="field">
+          Prompt 正文
+          <textarea
+            rows={4}
+            placeholder="贴上你想重复使用的指令……"
+            value={content}
+            onChange={(event) => setContent(event.target.value)}
+          />
+        </label>
+        <button disabled={!canCreate} onClick={handleCreatePrompt}>
+          保存 Prompt
+        </button>
+      </div>
+    </section>
+  );
+}
+

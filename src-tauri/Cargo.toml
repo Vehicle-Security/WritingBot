@@ -1,0 +1,23 @@
+[package]
+name = "chatwriting"
+version = "0.1.0"
+description = "CherryStudio-like AI chatbot built with Tauri"
+authors = ["LocalAgent"]
+license = "MIT"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "1.5", features = [] }
+
+[dependencies]
+tauri = { version = "1.6", features = [ "shell-open"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+tokio = { version = "1.39", features = ["macros", "rt-multi-thread"] }
+anyhow = "1"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]
+
