@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import "./App.css";
 import { useChatStore } from "./store/chatStore";
 import { PromptLibrary } from "./components/PromptLibrary";
@@ -23,7 +23,11 @@ function App() {
     selectPrompt,
     upsertPrompt,
     setStatus,
-    setConfig
+    setConfig,
+    pendingPromptQueue,
+    autoConversationActive,
+    popNextAutoPrompt,
+    stopAutoConversation
   } = useChatStore();
 
   const [composerValue, setComposerValue] = useState("");
@@ -38,8 +42,11 @@ function App() {
     return reversed.find((msg) => msg.role === "assistant");
   }, [messages]);
 
-  const sendMessage = useCallback(async () => {
-    const content = composerValue.trim();
+  // 自动对话流递归发送
+  const autoQueueRef = useRef<string[]>([]);
+
+  const sendMessage = useCallback(async (overrideContent?: string) => {
+    const content = (overrideContent ?? composerValue).trim();
     if (!content) return;
 
     const payloadMessages = [
@@ -84,7 +91,6 @@ function App() {
       setStatus("idle");
     } catch (err) {
       setStatus("error", err instanceof Error ? err.message : String(err));
-      // remove pending user message to keep timeline clean?
     }
   }, [
     composerValue,
@@ -98,6 +104,41 @@ function App() {
     config.maxTokens,
     setStatus
   ]);
+
+  // 自动对话流 effect
+  useEffect(() => {
+    if (!autoConversationActive) return;
+    // 初始化队列
+    autoQueueRef.current = [...pendingPromptQueue];
+    // 如果队列有内容且当前对话为空，则自动发第一个
+    if (autoQueueRef.current.length && messages.length === 0 && status === "idle") {
+      const nextPromptId = autoQueueRef.current.shift();
+      if (nextPromptId) {
+        const prompt = prompts.find((p) => p.id === nextPromptId);
+        if (prompt) sendMessage(prompt.content);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoConversationActive]);
+
+  // 监听 assistant 回复后自动发下一个
+  useEffect(() => {
+    if (!autoConversationActive) return;
+    if (status !== "idle") return;
+    // 只在最后一条消息为 assistant 且队列还有内容时自动发下一个
+    if (messages.length > 0 && messages[messages.length - 1].role === "assistant" && autoQueueRef.current.length) {
+      const nextPromptId = autoQueueRef.current.shift();
+      if (nextPromptId) {
+        const prompt = prompts.find((p) => p.id === nextPromptId);
+        if (prompt) sendMessage(prompt.content);
+      }
+    }
+    // 队列空了就自动关闭
+    if (autoQueueRef.current.length === 0 && autoConversationActive) {
+      stopAutoConversation();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, status, autoConversationActive]);
 
   const handleApplyPrompt = (prompt: PromptTemplate) => {
     setComposerValue((prev) =>

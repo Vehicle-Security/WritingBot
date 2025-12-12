@@ -49,6 +49,7 @@ export interface ChatState {
   status: ChatStatus;
   error?: string;
   config: ModelConfig;
+  selectedPrompts: string[]; // 存储被选中的消息id
   addMessage: (message: ChatMessage) => void;
   updateMessage: (id: string, partial: Partial<ChatMessage>) => void;
   resetConversation: () => void;
@@ -57,7 +58,17 @@ export interface ChatState {
   selectPrompt: (id?: string) => void;
   setStatus: (status: ChatStatus, error?: string) => void;
   setConfig: (partial: Partial<ModelConfig>) => void;
+  togglePromptSelection: (id: string) => void;
+  clearPromptSelection: () => void;
+  saveSelectedPromptsAsLibrary: () => void;
+  startConversationWithPrompts: (promptIds: string[]) => void;
+  pendingPromptQueue: string[];
+  autoConversationActive: boolean;
+  startAutoConversation: (promptIds: string[]) => void;
+  popNextAutoPrompt: () => string | undefined;
+  stopAutoConversation: () => void;
 }
+
 
 export const useChatStore = create<ChatState>()((set, get) => ({
   messages: [],
@@ -66,6 +77,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
   status: "idle",
   error: undefined,
   config: initialConfig,
+  selectedPrompts: [],
   addMessage: (message) =>
     set((state) => ({
       messages: [...state.messages, message]
@@ -76,7 +88,7 @@ export const useChatStore = create<ChatState>()((set, get) => ({
         msg.id === id ? { ...msg, ...partial } : msg
       )
     })),
-  resetConversation: () => set({ messages: [], status: "idle", error: undefined }),
+  resetConversation: () => set({ messages: [], status: "idle", error: undefined, selectedPrompts: [] }),
   upsertPrompt: (prompt) =>
     set((state) => {
       const exists = state.prompts.some((p) => p.id === prompt.id);
@@ -102,6 +114,71 @@ export const useChatStore = create<ChatState>()((set, get) => ({
       const nextConfig = { ...state.config, ...partial };
       persistConfig(nextConfig);
       return { config: nextConfig };
-    })
+    }),
+  togglePromptSelection: (id) =>
+    set((state) => {
+      const selected = state.selectedPrompts.includes(id)
+        ? state.selectedPrompts.filter((pid) => pid !== id)
+        : [...state.selectedPrompts, id];
+      return { selectedPrompts: selected };
+    }),
+  clearPromptSelection: () => set({ selectedPrompts: [] }),
+  saveSelectedPromptsAsLibrary: () => {
+    const { messages, selectedPrompts, prompts } = get();
+    const selectedMessages = messages.filter(
+      (msg) => selectedPrompts.includes(msg.id) && msg.role === "user"
+    );
+    if (selectedMessages.length === 0) return;
+    // 生成 PromptTemplate
+    const now = Date.now();
+    const newPrompts: PromptTemplate[] = selectedMessages.map((msg) => ({
+      id: `from-msg-${msg.id}`,
+      name: msg.content.slice(0, 16) || "用户消息",
+      description: "来自历史对话的用户消息",
+      content: msg.content,
+      createdAt: now,
+      updatedAt: now
+    }));
+    const mergedPrompts = [...prompts, ...newPrompts];
+    persistPrompts(mergedPrompts);
+    set({ prompts: mergedPrompts, selectedPrompts: [] });
+  },
+  pendingPromptQueue: [],
+  autoConversationActive: false,
+  startAutoConversation: (promptIds) => {
+    set({
+      messages: [],
+      status: "idle",
+      error: undefined,
+      selectedPrompts: [],
+      pendingPromptQueue: promptIds,
+      autoConversationActive: true
+    });
+  },
+  popNextAutoPrompt: () => {
+    const { pendingPromptQueue } = get();
+    if (!pendingPromptQueue.length) return undefined;
+    const [next, ...rest] = pendingPromptQueue;
+    set({ pendingPromptQueue: rest });
+    return next;
+  },
+  stopAutoConversation: () => {
+    set({ autoConversationActive: false, pendingPromptQueue: [] });
+  },
+  startConversationWithPrompts: (promptIds) => {
+    const { prompts } = get();
+    const now = Date.now();
+    // 找到对应的prompt内容，依次生成user消息
+    const promptMessages = promptIds
+      .map((pid) => prompts.find((p) => p.id === pid))
+      .filter(Boolean)
+      .map((prompt) => ({
+        id: crypto.randomUUID(),
+        role: "user" as const,
+        content: prompt!.content,
+        createdAt: now
+      }));
+    set({ messages: promptMessages, status: "idle", error: undefined, selectedPrompts: [] });
+  },
 }));
 

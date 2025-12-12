@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useChatStore } from "../store/chatStore";
 import type { PromptTemplate } from "../types/chat";
 
 interface PromptLibraryProps {
@@ -18,6 +19,9 @@ export function PromptLibrary({
   onDelete,
   onSave
 }: PromptLibraryProps) {
+  const { startAutoConversation } = useChatStore();
+  const [multiSelect, setMultiSelect] = useState(false);
+  const [selectedPromptIds, setSelectedPromptIds] = useState<string[]>([]);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
   const [description, setDescription] = useState("");
@@ -45,31 +49,74 @@ export function PromptLibrary({
 
   return (
     <section className="panel">
-      <div className="panel-header">
+      <div className="panel-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <span className="panel-title">Prompt 库</span>
         <span className="status-chip idle">{prompts.length}</span>
+        <button className="btn btn-sm" onClick={() => {
+          setMultiSelect((v) => !v);
+          setSelectedPromptIds([]);
+        }}>
+          {multiSelect ? "退出多选" : "批量导入对话"}
+        </button>
       </div>
 
       <div className="prompts-list">
         {prompts.map((prompt) => (
           <article
             key={prompt.id}
-            className={`prompt-card ${
-              prompt.id === selectedPromptId ? "active" : ""
-            }`}
+            className={`prompt-card ${prompt.id === selectedPromptId ? "active" : ""}`}
+            style={{ display: "flex", alignItems: "center", gap: 8 }}
           >
-            <div className="prompt-name">{prompt.name}</div>
-            <div className="prompt-preview">
-              {prompt.description || prompt.content}
+            {multiSelect && (
+              <input
+                type="checkbox"
+                checked={selectedPromptIds.includes(prompt.id)}
+                onChange={() => {
+                  setSelectedPromptIds((ids) =>
+                    ids.includes(prompt.id)
+                      ? ids.filter((id) => id !== prompt.id)
+                      : [...ids, prompt.id]
+                  );
+                }}
+                style={{ marginRight: 8 }}
+                title="选择此Prompt"
+              />
+            )}
+            <div style={{ flex: 1 }}>
+              <div className="prompt-name">{prompt.name}</div>
+              <div className="prompt-preview">
+                {prompt.description || prompt.content}
+              </div>
             </div>
-            <div className="prompt-actions">
-              <button onClick={() => onApply(prompt)}>插入</button>
-              <button onClick={() => onSelect(prompt.id)}>设为系统</button>
-              <button onClick={() => onDelete(prompt.id)}>删除</button>
-            </div>
+            {!multiSelect && (
+              <div className="prompt-actions">
+                <button onClick={() => onApply(prompt)}>插入</button>
+                <button onClick={() => onSelect(prompt.id)}>设为系统</button>
+                <button onClick={() => onDelete(prompt.id)}>删除</button>
+              </div>
+            )}
           </article>
         ))}
       </div>
+
+      {multiSelect && (
+        <div style={{ margin: "8px 0", display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-primary"
+            disabled={selectedPromptIds.length === 0}
+            onClick={() => {
+              startAutoConversation(selectedPromptIds);
+              setMultiSelect(false);
+              setSelectedPromptIds([]);
+            }}
+          >
+            新建对话（批量导入）
+          </button>
+          <button className="btn" onClick={() => setSelectedPromptIds([])}>
+            清空选择
+          </button>
+        </div>
+      )}
 
       <div className="panel-header" style={{ marginTop: "1rem" }}>
         <span className="panel-title">新增 Prompt</span>
